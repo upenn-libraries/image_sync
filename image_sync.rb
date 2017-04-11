@@ -19,7 +19,7 @@ objects.each { |obj| obj.gsub!(identity_file,'').chomp!('/') }
 
 objects.each do |object|
 
-  version = File.open("#{object}/current.txt").read.chomp
+  version = File.open("#{object}/current.txt").readlines.first.chomp
   files = Dir["#{object}/#{version}/full/*"]
 
   whitelisted_file_patterns.each do |wfp|
