@@ -61,11 +61,11 @@ objects.each do |object|
 
     volatile_file_path = "#{volatile}/#{dest_dir}/#{dest_basename}"
     canonical_file_path = "#{canonical}/#{dest_dir}/#{dest_basename}"
-    destination_file_path = "#{destination}/#{dest_dir}/#{dest_basename}"
+    destination_file_path = "#{destination}/#{dest_dir}/add/#{dest_basename}"
 
     FileUtils.mkdir_p("#{volatile}/#{dest_dir}")
     FileUtils.mkdir_p("#{canonical}/#{dest_dir}")
-    FileUtils.mkdir_p("#{destination}/#{dest_dir}")
+    FileUtils.mkdir_p("#{destination}/#{dest_dir}/add")
 
     begin
       FileUtils::ln_s(file, volatile_file_path)
@@ -77,11 +77,15 @@ objects.each do |object|
       FileUtils.ln_s(file, canonical_file_path)
       move_file = true
     rescue => exception
-      if check_version(file, version, canonical_file_path)
-        update_target(file, canonical_file_path)
-        destination_file_path = "#{destination}/#{dest_dir}/modify/#{dest_basename}"
-        FileUtils.mkdir_p("#{destination_file_path}")
-        move_file = true
+      if exception.message =~ /File exists/
+        if check_version(file, version, canonical_file_path)
+          update_target(file, canonical_file_path)
+          destination_file_path = "#{destination}/#{dest_dir}/modify/#{dest_basename}"
+          FileUtils.mkdir_p("#{destination_file_path}")
+          move_file = true
+        end
+      else
+        abort("Error on symlink creation: #{exception.message}")
       end
     end
 
