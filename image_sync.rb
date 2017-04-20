@@ -8,7 +8,21 @@ def missing_env_vars?
   return (ENV['IM_SOURCE'].nil? || ENV['IM_DESTINATION'].nil? || ENV['IM_VOLATILE'].nil? || ENV['IM_CANONICAL'].nil?)
 end
 
-def check_version(incoming_target, latest_version, canonical_symlink)
+def whitelisted_files_present?(file_list, whitelisted_file_patterns)
+  indicator = false
+  whitelisted_file_patterns.each do |wfp|
+    file_list.select do |p|
+      indicator = true unless (/#{wfp}/ =~ p).nil?
+    end
+  end
+  return indicator
+end
+
+def canonical_exists?(canonical_symlink)
+  return File.exist?(canonical_symlink)
+end
+
+def newer_version_available?(incoming_target, latest_version, canonical_symlink)
   target = File.readlink(canonical_symlink)
   return false if incoming_target == target
   abort("Version specified in current.txt (#{latest_version}) does not match incoming symlink target") unless incoming_target.include?(latest_version)
@@ -17,6 +31,11 @@ end
 
 def update_target(latest_target, canonical_symlink)
   FileUtils.ln_sf(latest_target, canonical_symlink)
+end
+
+def manage_canonical_symlink(target, canonical_symlink, canonical_action)
+  update_target(target, canonical_symlink) if canonical_action == 'update'
+  FileUtils.ln_s(target, canonical_symlink) if canonical_action == 'add'
 end
 
 abort 'Missing env variable(s)' if missing_env_vars?
@@ -38,16 +57,18 @@ objects.each { |obj| obj.gsub!(identity_file,'').chomp!('/') }
 
 objects.each do |object|
 
+  move_file = false
+
   version = File.open("#{object}/current.txt").readlines.first.chomp
   files = Dir["#{object}/#{version}/full/*"]
 
-  whitelisted_file_patterns.each do |wfp|
+  next unless whitelisted_files_present?(files, whitelisted_file_patterns)
 
-    move_file = false
+  whitelisted_file_patterns.each do |wfp|
 
     file_matched = files.select { |p| /#{wfp}/ =~ p }
 
-    abort("no whitelisted files detected in #{object}/#{version}") if file_matched.length > 1 || file_matched.empty?
+    abort("More files match #{wfp} than expected in #{object}/#{version}, aborting.") if file_matched.length > 1
 
     file = file_matched[0]
 
@@ -61,37 +82,37 @@ objects.each do |object|
 
     volatile_file_path = "#{volatile}/#{dest_dir}/#{dest_basename}"
     canonical_file_path = "#{canonical}/#{dest_dir}/#{dest_basename}"
-    destination_file_path = "#{destination}/#{dest_dir}/add/#{dest_basename}"
 
     FileUtils.mkdir_p("#{volatile}/#{dest_dir}")
     FileUtils.mkdir_p("#{canonical}/#{dest_dir}")
-    FileUtils.mkdir_p("#{destination}/#{dest_dir}/add")
 
     begin
       FileUtils::ln_s(file, volatile_file_path)
     rescue
-      abort('Volatile directory not empty')
+      abort('Conflicting symlink in volatile directory')
     end
 
-    begin
-      FileUtils.ln_s(file, canonical_file_path)
-      move_file = true
-    rescue => exception
-      if exception.message =~ /File exists/
-        if check_version(file, version, canonical_file_path)
-          update_target(file, canonical_file_path)
-          destination_file_path = "#{destination}/#{dest_dir}/modify/#{dest_basename}"
-          FileUtils.mkdir_p("#{destination_file_path}")
-          move_file = true
-        end
-      else
-        abort("Error on symlink creation: #{exception.message}")
+    if canonical_exists?(canonical_file_path)
+      move_file = false
+      if newer_version_available?(file, version, canonical_file_path)
+        destination_file_path = "#{destination}/modify/#{dest_dir}/#{dest_basename}"
+        FileUtils.mkdir_p("#{destination}/modify/#{dest_dir}")
+        move_file = true
+        canonical_action = 'update'
       end
+    else
+      destination_file_path = "#{destination}/add/#{dest_dir}/#{dest_basename}"
+      FileUtils.mkdir_p("#{destination}/add/#{dest_dir}")
+      move_file = true
+      canonical_action = 'add'
     end
 
     FileUtils.rm_rf(Dir.glob("#{volatile}/*"), :secure => true)
 
-    `rsync -lptv "#{file}" "#{destination_file_path}"` if move_file
+    if move_file
+      `rsync -lptv "#{file}" "#{destination_file_path}"`
+      manage_canonical_symlink(file, canonical_file_path, canonical_action)
+    end
 
   end
 
