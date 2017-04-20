@@ -2,6 +2,7 @@
 
 require 'find'
 require 'digest/md5'
+require 'logger'
 require 'pry'
 
 def missing_env_vars?
@@ -40,6 +41,11 @@ end
 
 abort 'Missing env variable(s)' if missing_env_vars?
 
+logger = Logger.new('| tee logger.log')
+logger.level = Logger::INFO
+
+logger.info('Script started')
+
 source = ENV['IM_SOURCE']
 destination = ENV['IM_DESTINATION']
 volatile = ENV['IM_VOLATILE']
@@ -68,9 +74,9 @@ objects.each do |object|
 
     file_matched = files.select { |p| /#{wfp}/ =~ p }
 
-    abort("More files match #{wfp} than expected in #{object}/#{version}, aborting.") if file_matched.length > 1
-
     file = file_matched[0]
+
+    logger.warn("More files match #{wfp} than expected in #{object}/#{version}, using (#{file}).") if file_matched.length > 1
 
     basename = File.basename(file, '.*')
     basename = basename.split('.').first
@@ -89,7 +95,9 @@ objects.each do |object|
     begin
       FileUtils::ln_s(file, volatile_file_path)
     rescue
-      abort('Conflicting symlink in volatile directory')
+      logger.warn("Conflicting symlink in volatile directory -- replacing at #{volatile_file_path}")
+      FileUtils.rm_rf(volatile_file_path, :secure => true)
+      retry
     end
 
     if canonical_exists?(canonical_file_path)
@@ -107,11 +115,12 @@ objects.each do |object|
       canonical_action = 'add'
     end
 
-    FileUtils.rm_rf(Dir.glob("#{volatile}/*"), :secure => true)
-
     if move_file
+      logger.info("Initializing transfer for #{file.gsub(source, '')}")
       `rsync -lptv "#{file}" "#{destination_file_path}"`
+      logger.info("Transfer succeeded for #{file.gsub(source, '')}")
       manage_canonical_symlink(file, canonical_file_path, canonical_action)
+      logger.info("Canonical path (#{dest_dir}/#{dest_basename}) #{canonical_action}ed")
     end
 
   end
