@@ -3,10 +3,30 @@
 require 'find'
 require 'digest/md5'
 require 'logger'
-require 'pry'
+require 'tmpdir'
 
 def missing_env_vars?
-  return (ENV['IM_SOURCE'].nil? || ENV['IM_DESTINATION'].nil? || ENV['IM_VOLATILE'].nil? || ENV['IM_CANONICAL'].nil?)
+  return (ENV['IM_DESTINATION'].nil? || ENV['IM_VOLATILE'].nil? || ENV['IM_CANONICAL'].nil?)
+end
+
+def missing_args?
+  return (ARGV[0].nil? || ARGV[1].nil?)
+end
+
+def valid_args?
+  return (File.exist?(ARGV[0]))
+end
+
+def create_process_lock(namespace)
+  begin
+    pid_dir = "#{Dir.tmpdir()}.running_#{namespace}"
+    pid_file = 'image_sync.pid'
+    FileUtils.mkdir(pid_dir)
+    File.open("#{pid_dir}/#{pid_file}", 'w') { |file| file.write('Process running') }
+    return "#{pid_dir}/#{pid_file}", pid_dir
+  rescue Errno::EEXIST
+    abort("Process for #{namespace} already running")
+  end
 end
 
 def whitelisted_files_present?(file_list, whitelisted_file_patterns)
@@ -40,16 +60,23 @@ def manage_canonical_symlink(target, canonical_symlink, canonical_action)
 end
 
 abort 'Missing env variable(s)' if missing_env_vars?
+abort 'Missing command-line argument(s)' if missing_args?
+abort 'Invalid comand-line argument(s)' unless valid_args?
+
+image_source = ARGV[0]
+destination_namespace = ARGV[1]
+
+source = image_source
+destination = "#{ENV['IM_DESTINATION']}/#{destination_namespace}"
+volatile = ENV['IM_VOLATILE']
+canonical = ENV['IM_CANONICAL']
+
+
+process_lock, process_directory = create_process_lock(destination_namespace)
 
 logger = Logger.new('| tee logger.log')
 logger.level = Logger::INFO
-
-logger.info('Script started')
-
-source = ENV['IM_SOURCE']
-destination = ENV['IM_DESTINATION']
-volatile = ENV['IM_VOLATILE']
-canonical = ENV['IM_CANONICAL']
+logger.info('Script run started')
 
 whitelisted_file_patterns = ['^.*DELIVERY.jp2']
 known_ignored_file_patterns = ['^.*THUMB.jp2','encoding.log']
@@ -95,7 +122,7 @@ objects.each do |object|
     begin
       FileUtils::ln_s(file, volatile_file_path)
     rescue
-      logger.warn("Conflicting symlink in volatile directory -- replacing at #{volatile_file_path}")
+      logger.warn("Pre-existing symlink in volatile directory -- replacing at #{volatile_file_path}")
       FileUtils.rm_rf(volatile_file_path, :secure => true)
       retry
     end
@@ -120,7 +147,7 @@ objects.each do |object|
       `rsync -lptv "#{file}" "#{destination_file_path}"`
       logger.info("Transfer succeeded for #{file.gsub(source, '')}")
       manage_canonical_symlink(file, canonical_file_path, canonical_action)
-      logger.info("Canonical path (#{dest_dir}/#{dest_basename}) #{canonical_action}ed")
+      logger.info("#{canonical_action.upcase} - Canonical path (#{dest_dir}/#{dest_basename})")
     end
 
   end
@@ -131,3 +158,10 @@ objects.each do |object|
 
 end
 
+# Optionally clear out the volatile directory at the end of the run
+FileUtils.rm_rf(Dir.glob("#{volatile}/*"), :secure => true)
+
+# Unlock the process
+FileUtils.rm_rf(process_directory, :secure => true)
+
+logger.info('Script run complete')
