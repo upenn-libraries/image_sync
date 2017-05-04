@@ -59,6 +59,7 @@ def manage_canonical_symlink(target, canonical_symlink, canonical_action)
   FileUtils.ln_s(target, canonical_symlink) if canonical_action == 'add'
 end
 
+
 abort 'Missing env variable(s)' if missing_env_vars?
 abort 'Missing command-line argument(s)' if missing_args?
 abort 'Invalid comand-line argument(s)' unless valid_args?
