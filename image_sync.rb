@@ -59,7 +59,6 @@ def manage_canonical_symlink(target, canonical_symlink, canonical_action)
   FileUtils.ln_s(target, canonical_symlink) if canonical_action == 'add'
 end
 
-
 abort 'Missing env variable(s)' if missing_env_vars?
 abort 'Missing command-line argument(s)' if missing_args?
 abort 'Invalid comand-line argument(s)' unless valid_args?
@@ -71,7 +70,6 @@ source = image_source
 destination = "#{ENV['IM_DESTINATION']}/#{destination_namespace}"
 volatile = ENV['IM_VOLATILE']
 canonical = ENV['IM_CANONICAL']
-
 
 process_lock, process_directory = create_process_lock(destination_namespace)
 

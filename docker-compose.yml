@@ -9,6 +9,8 @@ services:
       - 'image_sync:/usr/src/app'
       - '${LOCAL_DESTINATION}:${CONTAINER_DESTINATION}'
       - '${LOCAL_SOURCE}:${CONTAINER_SOURCE}'
+      - '${LOCAL_VOLATILE}:${CONTAINER_VOLATILE}'
+      - '${LOCAL_CANONICAL}:${CONTAINER_CANONICAL}'
 
 volumes:
   image_sync:
