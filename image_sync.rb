@@ -71,7 +71,6 @@ destination = "#{ENV['IM_DESTINATION']}/#{destination_namespace}"
 volatile = ENV['IM_VOLATILE']
 canonical = ENV['IM_CANONICAL']
 
-
 process_lock, process_directory = create_process_lock(destination_namespace)
 
 logger = Logger.new('| tee logger.log')
