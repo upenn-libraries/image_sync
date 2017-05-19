@@ -59,6 +59,16 @@ def manage_canonical_symlink(target, canonical_symlink, canonical_action)
   FileUtils.ln_s(target, canonical_symlink) if canonical_action == 'add'
 end
 
+def transform_collection_namespace(namespace)
+  chars_array = namespace.chars.each_slice(2).map(&:join)
+  single_index = chars_array.index{|char| char.length == 1 }
+  unless single_index.nil?
+    chars_array[single_index] = "#{chars_array[single_index]}_"
+  end
+  transformed_namespace = chars_array.join('/')
+  return transformed_namespace
+end
+
 abort 'Missing env variable(s)' if missing_env_vars?
 abort 'Missing command-line argument(s)' if missing_args?
 abort 'Invalid comand-line argument(s)' unless valid_args?
@@ -66,7 +76,8 @@ abort 'Invalid comand-line argument(s)' unless valid_args?
 image_source = ARGV[0]
 destination_namespace = ARGV[1]
 
-source = image_source
+source = "#{image_source}/#{transform_collection_namespace(destination_namespace)}"
+
 destination = "#{ENV['IM_DESTINATION']}/#{destination_namespace}"
 volatile = ENV['IM_VOLATILE']
 canonical = ENV['IM_CANONICAL']
