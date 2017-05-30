@@ -40,7 +40,7 @@ def whitelisted_files_present?(file_list, whitelisted_file_patterns)
 end
 
 def canonical_exists?(canonical_symlink)
-  return File.exist?(canonical_symlink)
+  return File.exist?(canonical_symlink) || File.symlink?(canonical_symlink)
 end
 
 def newer_version_available?(incoming_target, latest_version, canonical_symlink)
@@ -77,6 +77,8 @@ image_source = ARGV[0]
 destination_namespace = ARGV[1]
 
 source = "#{image_source}/#{transform_collection_namespace(destination_namespace)}"
+
+abort "Collection not found at #{source}" unless File.exist?(source)
 
 destination = "#{ENV['IM_DESTINATION']}/#{destination_namespace}"
 volatile = ENV['IM_VOLATILE']
