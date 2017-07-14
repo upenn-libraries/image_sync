@@ -142,14 +142,14 @@ objects.each do |object|
     if canonical_exists?(canonical_file_path)
       move_file = false
       if newer_version_available?(file, version, canonical_file_path)
-        destination_file_path = "#{destination}/modify/#{dest_dir}/#{dest_basename}"
-        FileUtils.mkdir_p("#{destination}/modify/#{dest_dir}")
+        destination_file_path = "#{destination}/modify/#{dest_basename}"
+        FileUtils.mkdir_p("#{destination}/modify/")
         move_file = true
         canonical_action = 'update'
       end
     else
-      destination_file_path = "#{destination}/add/#{dest_dir}/#{dest_basename}"
-      FileUtils.mkdir_p("#{destination}/add/#{dest_dir}")
+      destination_file_path = "#{destination}/add/#{dest_basename}"
+      FileUtils.mkdir_p("#{destination}/add/")
       move_file = true
       canonical_action = 'add'
     end
