@@ -4,6 +4,7 @@ require 'find'
 require 'digest/md5'
 require 'logger'
 require 'tmpdir'
+require 'rsync'
 
 def missing_env_vars?
   return (ENV['IM_DESTINATION'].nil? || ENV['IM_VOLATILE'].nil? || ENV['IM_CANONICAL'].nil?)
@@ -95,7 +96,6 @@ known_ignored_file_patterns = ['^.*THUMB.jp2','encoding.log']
 
 # This file will always be in the top directory of each image for processing
 identity_file = '0=dflat_1.0'
-
 objects = Find.find(source).select { |p| /#{identity_file}/ =~ p }
 
 objects.each { |obj| obj.gsub!(identity_file,'').chomp!('/') }
@@ -156,10 +156,17 @@ objects.each do |object|
 
     if move_file
       logger.info("Initializing transfer for #{file.gsub(source, '')}")
-      `rsync -lptv "#{file}" "#{destination_file_path}"`
-      logger.info("Transfer succeeded for #{file.gsub(source, '')}")
-      manage_canonical_symlink(file, canonical_file_path, canonical_action)
-      logger.info("#{canonical_action.upcase} - Canonical path (#{dest_dir}/#{dest_basename})")
+      Rsync.run(file, destination_file_path, "-lptv") do |result|
+        if result.success?
+          logger.info("Transfer succeeded for #{file.gsub(source, '')}")
+          manage_canonical_symlink(file, canonical_file_path, canonical_action)
+          logger.info("#{canonical_action.upcase} - Canonical path (#{dest_dir}/#{dest_basename})")
+        else
+          logger.info("#{result.error} for #{file.gsub(source, '')}")
+          exit
+        end
+      end
+
     end
 
   end
