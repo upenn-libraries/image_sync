@@ -26,4 +26,6 @@ ADD . /usr/src/app/
 
 WORKDIR /usr/src/app/
 
+RUN bundle install
+
 CMD ["ruby", "/usr/src/app/image_sync.rb"]
