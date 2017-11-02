@@ -1,0 +1,16 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    rsync (1.0.9)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  rsync
+
+RUBY VERSION
+   ruby 2.2.5p319
+
+BUNDLED WITH
+   1.14.6
