@@ -12,13 +12,9 @@ ENV IM_CANONICAL /canonical
 
 RUN mkdir /fs
 
-RUN mkdir /fs/source
+RUN mkdir /fs/store
 
 RUN mkdir /fs/destination
-
-RUN mkdir /fs/volatile
-
-RUN mkdir /fs/canonical
 
 RUN mkdir /usr/src/app
 
